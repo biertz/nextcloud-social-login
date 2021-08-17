@@ -157,6 +157,8 @@ class ProviderService
     private $dispatcher;
     /** @var DefaultTokenProvider */
     private $tokenProvider;
+    /** @var AdapterService  */
+    private $adapterService;
 
 
     public function __construct(
@@ -175,7 +177,8 @@ class ProviderService
         ConnectedLoginMapper $socialConnect,
         IAccountManager $accountManager,
         IEventDispatcher $dispatcher,
-        DefaultTokenProvider $tokenProvider
+        DefaultTokenProvider $tokenProvider,
+        AdapterService $adapterService
     ) {
         $this->appName = $appName;
         $this->request = $request;
@@ -193,6 +196,7 @@ class ProviderService
         $this->accountManager = $accountManager;
         $this->dispatcher = $dispatcher;
         $this->tokenProvider = $tokenProvider;
+        $this->adapterService = $adapterService;
     }
 
     public function getAuthUrl($name, $appId)
@@ -322,8 +326,7 @@ class ProviderService
         }
 
         try {
-            $adapter = new $class($config, null, $this->storage);
-            $adapter->authenticate();
+            $adapter = $this->adapterService->new($class, $config, $this->storage, $provider);
             $profile = $adapter->getUserProfile();
         }  catch (\Exception $e) {
             $this->storage->clear();
