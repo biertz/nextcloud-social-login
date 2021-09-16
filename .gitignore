@@ -1,3 +1,4 @@
 .credentials
 release.tar.gz
 node_modules
+/vendor/
