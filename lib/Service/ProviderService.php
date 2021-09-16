@@ -67,62 +67,6 @@ class ProviderService
         self::TYPE_OIDC => CustomOpenIDConnect::class,
     ];
 
-    private $configMapping = [
-        'default' => [
-            'keys' => [
-                'id' => 'appid',
-                'secret' => 'secret',
-            ],
-        ],
-        self::TYPE_OPENID => [
-            'openid_identifier' => 'url',
-        ],
-        self::TYPE_OAUTH1 => [
-            'keys' => [
-                'id'     => 'clientId',
-                'secret' => 'clientSecret',
-            ],
-            'endpoints' => [
-                'authorize_url'    => 'authorizeUrl',
-                'access_token_url' => 'tokenUrl',
-                'profile_url'    => 'profileUrl',
-            ],
-            'logout_url' => 'logoutUrl',
-        ],
-        self::TYPE_OAUTH2 => [
-            'scope' => 'scope',
-            'keys' => [
-                'id'     => 'clientId',
-                'secret' => 'clientSecret',
-            ],
-            'endpoints' => [
-                'api_base_url'     => 'apiBaseUrl',
-                'authorize_url'    => 'authorizeUrl',
-                'access_token_url' => 'tokenUrl',
-                'profile_url'    => 'profileUrl',
-            ],
-            'profile_fields' => 'profileFields',
-            'groups_claim'  => 'groupsClaim',
-            'group_mapping' => 'groupMapping',
-            'logout_url'    => 'logoutUrl',
-        ],
-        self::TYPE_OIDC => [
-            'scope' => 'scope',
-            'keys' => [
-                'id'     => 'clientId',
-                'secret' => 'clientSecret',
-            ],
-            'endpoints' => [
-                'authorize_url'    => 'authorizeUrl',
-                'access_token_url' => 'tokenUrl',
-                'user_info_url'    => 'userInfoUrl',
-            ],
-            'displayname_claim' => 'displayNameClaim',
-            'groups_claim'  => 'groupsClaim',
-            'group_mapping' => 'groupMapping',
-            'logout_url'    => 'logoutUrl',
-        ],
-    ];
 
     /** @var string */
     private $appName;
@@ -156,7 +100,12 @@ class ProviderService
     private $dispatcher;
     /** @var DefaultTokenProvider */
     private $tokenProvider;
-
+    /** @var AdapterService  */
+    private $adapterService;
+    /** @var ConfigService  */
+    private $configService;
+    /** @var TokenService */
+    private $tokenService;
 
     public function __construct(
         $appName,
@@ -174,7 +123,10 @@ class ProviderService
         ConnectedLoginMapper $socialConnect,
         IAccountManager $accountManager,
         IEventDispatcher $dispatcher,
-        DefaultTokenProvider $tokenProvider
+        DefaultTokenProvider $tokenProvider,
+        AdapterService $adapterService,
+        ConfigService $configService,
+        TokenService $tokenService
     ) {
         $this->appName = $appName;
         $this->request = $request;
@@ -192,6 +144,9 @@ class ProviderService
         $this->accountManager = $accountManager;
         $this->dispatcher = $dispatcher;
         $this->tokenProvider = $tokenProvider;
+        $this->adapterService = $adapterService;
+        $this->configService = $configService;
+        $this->tokenService = $tokenService;
     }
 
     public function getAuthUrl($name, $appId)
@@ -224,77 +179,16 @@ class ProviderService
 
     public function handleDefault($provider)
     {
-        $config = [];
-        $providers = json_decode($this->config->getAppValue($this->appName, 'oauth_providers'), true) ?: [];
-        if (is_array($providers) && in_array($provider, array_keys($providers))) {
-            foreach ($providers as $name => $prov) {
-                if ($name === $provider) {
-                    $callbackUrl = $this->urlGenerator->linkToRouteAbsolute($this->appName.'.login.oauth', ['provider' => $provider]);
-                    $config = array_merge([
-                        'callback' => $callbackUrl,
-                        'default_group' => $prov['defaultGroup'],
-                        'orgs' => $prov['orgs'] ?? null,
-                    ], $this->applyConfigMapping('default', $prov));
+        $config = $this->configService->defaultConfig($provider);
 
-                    if (isset($prov['auth_params']) && is_array($prov['auth_params'])) {
-                        foreach ($prov['auth_params'] as $k => $v) {
-                            if (!empty($v)) {
-                                $config['authorize_url_parameters'][$k] = $v;
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-        }
         return $this->auth(Provider::class.'\\'.ucfirst($provider), $config, $provider, 'OAuth');
     }
 
     public function handleCustom($type, $provider)
     {
-        $config = [];
-        $providers = json_decode($this->config->getAppValue($this->appName, 'custom_providers'), true) ?: [];
-        if (isset($providers[$type])) {
-            foreach ($providers[$type] as $prov) {
-                if ($prov['name'] === $provider) {
-                    $callbackUrl = $this->urlGenerator->linkToRouteAbsolute($this->appName.'.login.custom', [
-                        'type'=> $type,
-                        'provider' => $provider
-                    ]);
-                    $config = array_merge([
-                        'callback'          => $callbackUrl,
-                        'default_group'     => $prov['defaultGroup'],
-                    ], $this->applyConfigMapping($type, $prov));
+        $config = $this->configService->customConfig($type, $provider);
 
-                    if (isset($config['endpoints']['authorize_url']) && strpos($config['endpoints']['authorize_url'], '?') !== false) {
-                        list($authUrl, $authQuery) = explode('?', $config['endpoints']['authorize_url'], 2);
-                        $config['endpoints']['authorize_url'] = $authUrl;
-                        parse_str($authQuery, $config['authorize_url_parameters']);
-                    }
-                    break;
-                }
-            }
-        }
-        return $this->auth(self::TYPE_CLASSES[$type], $config, $provider);
-    }
-
-    private function applyConfigMapping($mapping, $data)
-    {
-        if (!is_array($mapping)) {
-            if (!isset($this->configMapping[$mapping])) {
-                throw new LoginException(sprintf('Unknown provider type: %s', $mapping));
-            }
-            $mapping = $this->configMapping[$mapping];
-        }
-        $result = [];
-        foreach ($mapping as $k => $v) {
-            if (is_array($v)) {
-                $result[$k] = $this->applyConfigMapping($v, $data);
-            } else {
-                $result[$k] = isset($data[$v]) ? $data[$v] : null;
-            }
-        }
-        return $result;
+        return $this->auth(ConfigService::TYPE_CLASSES[$type], $config, $provider, $type);
     }
 
     private function auth($class, array $config, $provider, $providerType = null)
@@ -321,8 +215,12 @@ class ProviderService
         }
 
         try {
-            $adapter = new $class($config, null, $this->storage);
-            $adapter->authenticate();
+            $adapter = $this->adapterService->new($class, $config, $this->storage);
+            if (array_key_exists('saveTokens', $config) && $config['saveTokens'] == true ) {
+                $this->tokenService->authenticate($adapter, $providerType, $provider);
+            } else{
+                $adapter->authenticate();
+            }
             $profile = $adapter->getUserProfile();
         }  catch (\Exception $e) {
             $this->storage->clear();
