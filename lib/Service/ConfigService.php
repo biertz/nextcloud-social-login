@@ -3,6 +3,7 @@
 namespace OCA\SocialLogin\Service;
 
 use OC\User\LoginException;
+use OCA\SocialLogin\AppInfo\Application;
 use OCA\SocialLogin\Db\TokensMapper;
 use OCA\SocialLogin\Provider\CustomOAuth1;
 use OCA\SocialLogin\Provider\CustomOAuth2;
@@ -12,6 +13,7 @@ use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IURLGenerator;
 use Hybridauth\Provider;
+use Safe\Exceptions\JsonException;
 
 class ConfigService
 {
@@ -158,6 +160,105 @@ class ConfigService
             }
         }
         return $config;
+    }
+
+    /**
+     * Same as customConfig, but does not require to pass the provider type. // TODO merge both functions
+     *
+     * @param $provider
+     * @return array
+     * @throws LoginException
+     */
+
+    public function getCustomProviderConfig($provider): array {
+        $config = [];
+        $providers = json_decode($this->config->getAppValue($this->appName, 'custom_providers'), true) ?: [];
+        foreach ($providers as $type=>$provs) {
+            foreach ($provs as $prov) {
+                if ($prov['name'] === $provider) {
+                    $callbackUrl = $this->urlGenerator->linkToRouteAbsolute($this->appName.'.login.custom', [
+                        'type'=> $type,
+                        'provider' => $provider
+                    ]);
+                    $config = array_merge([
+                        'callback'          => $callbackUrl,
+                        'default_group'     => $prov['defaultGroup'],
+                    ], $this->applyConfigMapping($type, $prov));
+
+                    if (isset($config['endpoints']['authorize_url']) && strpos($config['endpoints']['authorize_url'], '?') !== false) {
+                        list($authUrl, $authQuery) = explode('?', $config['endpoints']['authorize_url'], 2);
+                        $config['endpoints']['authorize_url'] = $authUrl;
+                        parse_str($authQuery, $config['authorize_url_parameters']);
+                    }
+                    break;
+                }
+            }
+        }
+        return $config;
+    }
+
+    /**
+     * Returns the names of all providers as an array of strings.
+     *
+     * @return array
+     * @throws JsonException
+     */
+    public function getProviderIds(): array
+    {
+        $providerIds = $this->getCustomProviderIds();
+        $providerIds = array_merge($providerIds, $this->getOAuthProviderIds());
+
+        return $providerIds;
+    }
+
+    /**
+     * Returns the names of all custom providers as an array of strings.
+     *
+     * @return array
+     * @throws JsonException
+     */
+    public function getCustomProviderIds(): array
+    {
+        $providerIds = [];
+        $custom_providers = \Safe\json_decode($this->config->getAppValue($this->appName, 'custom_providers'), true);
+        foreach ($custom_providers as $type) {
+            foreach ($type as $provider){
+                $providerIds[] = $provider['name'];
+            }
+        }
+        return $providerIds;
+    }
+
+    /**
+     * Returns the names of all preconfigured oauth providers as an array of strings.
+     *
+     * @return array
+     * @throws JsonException
+     */
+    public function getOAuthProviderIds(): array {
+        $providerIds = [];
+        $oauth_providers = \Safe\json_decode($this->config->getAppValue($this->appName, 'oauth_providers'), true);
+        $oauth_providers = array_keys($oauth_providers);
+        foreach ($oauth_providers as $provider) {
+            $providerIds[] = $provider;
+        }
+        return $providerIds;
+    }
+
+    /**
+     * @throws LoginException
+     */
+    public function getCustomProviderAuthorizeUrl(string $providerId){
+        $config = $this->getCustomProviderConfig($providerId);
+        return $config['endpoints']['authorize_url'];
+    }
+
+    /**
+     * @throws LoginException
+     */
+    public function getCustomProviderTokenUrl(string $providerId){
+        $config = $this->getCustomProviderConfig($providerId);
+        return $config['endpoints']['access_token_url'];
     }
 
     /**
