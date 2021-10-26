@@ -95,4 +95,25 @@ class TokensMapper extends QBMapper
         return $tokens;
     }
 
+    /**
+     * @throws Db\DoesNotExistException
+     * @throws Db\MultipleObjectsReturnedException
+     * @throws Exception
+     */
+    public function findByConnectedLoginsAndProviderId(string $uid, string $providerId)
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where(
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid))
+            )
+            ->andWhere(
+                $qb->expr()->eq('providerId', $qb->createNamedParameter($providerId))
+            );
+
+            return $this->findEntity($qb);
+    }
+
 }
