@@ -116,4 +116,18 @@ class TokensMapper extends QBMapper
             return $this->findEntity($qb);
     }
 
+    /**
+     * @param string $uid Nextcloud user id
+     * @throws Exception
+     */
+    public function deleteAll(string $uid)
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->delete($this->tableName)
+            ->where(
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid, 'string'))
+            );
+        $qb->execute();
+    }
 }

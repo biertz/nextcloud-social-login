@@ -5,6 +5,7 @@ namespace OCA\SocialLogin\AppInfo;
 use OCA\SocialLogin\AlternativeLogin\DefaultLoginShow;
 use OCA\SocialLogin\AlternativeLogin\SocialLogin;
 use OCA\SocialLogin\Db\ConnectedLoginMapper;
+use OCA\SocialLogin\Db\TokensMapper;
 use OCA\SocialLogin\Service\ProviderService;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
@@ -124,6 +125,7 @@ class Application extends App implements IBootstrap
     {
         $user = $event->getUser();
         $this->query(ConnectedLoginMapper::class)->disconnectAll($user->getUID());
+        $this->query(TokensMapper::class)->deleteAll($user->getUID());
     }
 
     private function query($className)
