@@ -15,6 +15,8 @@ class RefreshTokensTask extends TimedJob
     private $tokensMapper;
     private $logger;
 
+    public static int $REFRESH_TOKENS_JOB_INTERVAL = 60;
+
     public function __construct(ITimeFactory $time, TokenService $tokenService, TokensMapper $tokensMapper, LoggerInterface $logger)
     {
         parent::__construct($time);
@@ -22,7 +24,7 @@ class RefreshTokensTask extends TimedJob
         $this->tokensMapper = $tokensMapper;
         $this->logger = $logger;
 
-        parent::setInterval(60);
+        parent::setInterval(self::$REFRESH_TOKENS_JOB_INTERVAL);
     }
 
     /**

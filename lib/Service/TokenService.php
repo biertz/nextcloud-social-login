@@ -8,6 +8,7 @@ use OCA\SocialLogin\Db\Tokens;
 use OCA\SocialLogin\Db\TokensMapper;
 use OCA\SocialLogin\Service\Exceptions\NoTokensException;
 use OCA\SocialLogin\Service\Exceptions\TokensException;
+use OCA\SocialLogin\Task\RefreshTokensTask;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
 use OCP\DB\Exception;
@@ -196,12 +197,15 @@ class TokenService
     }
 
     /**
+     * Checks whether an access token has expired. Treats any token as expired that would expire before the next cron
+     * execution.
      * @param Tokens $tokens
      * @return bool
      * @throws \Exception
      */
     protected function hasAccessTokenExpired(Tokens $tokens): bool
     {
-        return $tokens->getExpiresAt() < new DateTime('@'.time());
+        $t = time() + RefreshTokensTask::$REFRESH_TOKENS_JOB_INTERVAL + 1;
+        return $tokens->getExpiresAt() < new DateTime('@'.$t);
     }
 }
