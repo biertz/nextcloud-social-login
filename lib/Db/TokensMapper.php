@@ -30,6 +30,9 @@ class TokensMapper extends QBMapper
             return $this->findEntities($qb);
     }
 
+    /**
+     * @throws Exception
+     */
     public function findAll(): ?array
     {
         $qb = $this->db->getQueryBuilder();
@@ -38,11 +41,7 @@ class TokensMapper extends QBMapper
             ->from($this->getTableName()
             );
 
-        try {
-            return $this->findEntities($qb);
-        } catch (Exception $e) {
-            return null;
-        }
+        return $this->findEntities($qb);
     }
 
     /**

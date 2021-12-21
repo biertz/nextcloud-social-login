@@ -32,7 +32,7 @@ class RefreshTokensTask extends TimedJob
     protected function run($argument)
     {
             $this->logger->info('Refresh cron is running.');
-            $this->tokenService->refreshTokens();
+            $this->tokenService->refreshAllTokens();
             $this->logger->info('Refresh cron ran.');
     }
 }
