@@ -5,6 +5,11 @@ namespace OCA\SocialLogin\Service;
 use DateTime;
 use OCA\SocialLogin\Db\Tokens;
 use OCA\SocialLogin\Db\TokensMapper;
+use OCA\SocialLogin\Service\Exceptions\NoTokensException;
+use OCA\SocialLogin\Service\Exceptions\TokensException;
+use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Db\MultipleObjectsReturnedException;
+use OCP\DB\Exception;
 use Psr\Log\LoggerInterface;
 
 class TokenService
@@ -39,8 +44,25 @@ class TokenService
     }
 
     /**
+     * @return Tokens A user's sociallogin tokens.
+     * @throws TokensException
+     * @throws NoTokensException
+     */
+    public function get(string $uid, string $providerId): Tokens {
+        try {
+            return $this->tokensMapper->findByConnectedLoginsAndProviderId($uid, $providerId);
+        } catch (DoesNotExistException $e) {
+            throw new NoTokensException('Could not find tokens for uid '.$uid.'.');
+        } catch (MultipleObjectsReturnedException $e) {
+            throw new TokensException('There should be only one set of tokens per user, but we found multiple!');
+        } catch (Exception $e) {
+            throw new TokensException($e->getMessage());
+        }
+    }
+
+    /**
      * @throws \OC\User\LoginException
-     * @throws \OCP\DB\Exception
+     * @throws Exception
      */
     public function refreshTokens() : void
     {
@@ -82,21 +104,33 @@ class TokenService
 
 
     /**
-     * @throws \OCP\DB\Exception
+     * @throws Exception
+     * @throws TokensException
      */
     public function saveTokens(array $accessTokens, string $uid, string $providerType, string $providerId): void
     {
         if (!array_key_exists('expires_at', $accessTokens) && array_key_exists('expires_in', $accessTokens)) {
             $accessTokens['expires_at'] = time() + $accessTokens['expires_in'];
         }
-        $tokens = new Tokens();
-        $tokens->setUid($uid);
-        $tokens->setAccessToken($accessTokens['access_token']);
-        $tokens->setRefreshToken($accessTokens['refresh_token']);
-        $tokens->setExpiresAt(new DateTime('@'.$accessTokens['expires_at']));
-        $tokens->setProviderType($providerType);
-        $tokens->setProviderId($providerId);
-        $this->tokensMapper->insertOrUpdate($tokens);
+        // $this->tokensMapper->insertOrUpdate($tokens) would fail, see https://github.com/nextcloud/server/issues/21705
+        try {
+            $tokens = $this->get($uid, $providerId);
+            $tokens->setAccessToken($accessTokens['access_token']);
+            $tokens->setRefreshToken($accessTokens['refresh_token']);
+            $tokens->setExpiresAt(new DateTime('@'.$accessTokens['expires_at']));
+            $tokens->setProviderType($providerType);
+            $tokens->setProviderId($providerId);
+            $this->tokensMapper->update($tokens);
+        } catch (NoTokensException $e) {
+            $tokens = new Tokens();
+            $tokens->setUid($uid);
+            $tokens->setAccessToken($accessTokens['access_token']);
+            $tokens->setRefreshToken($accessTokens['refresh_token']);
+            $tokens->setExpiresAt(new DateTime('@'.$accessTokens['expires_at']));
+            $tokens->setProviderType($providerType);
+            $tokens->setProviderId($providerId);
+            $this->tokensMapper->insert($tokens);
+        }
     }
 
     protected function hasAccessTokenExpired(Tokens $tokens): bool
