@@ -23,10 +23,10 @@ class Tokens extends Entity
 
     public function __construct() {
         $this->addType('uid', Types::STRING);
-        $this->addType('access_token', Types::STRING);
-        $this->addType('refresh_token', Types::STRING);
-        $this->addType('expires_at', Types::DATETIME);
-        $this->addType('provider_type', Types::STRING);
-        $this->addType('provider_id', Types::STRING);
+        $this->addType('accessToken', Types::STRING);
+        $this->addType('refreshToken', Types::STRING);
+        $this->addType('expiresAt', Types::DATETIME);
+        $this->addType('providerType', Types::STRING);
+        $this->addType('providerId', Types::STRING);
     }
 }

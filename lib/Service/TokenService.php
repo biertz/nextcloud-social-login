@@ -112,11 +112,12 @@ class TokenService
         if (!array_key_exists('expires_at', $accessTokens) && array_key_exists('expires_in', $accessTokens)) {
             $accessTokens['expires_at'] = time() + $accessTokens['expires_in'];
         }
+        // $this->tokensMapper->insertOrUpdate($tokens) would fail, see https://github.com/nextcloud/server/issues/21705
         try {
             $tokens = $this->get($uid, $providerId);
             $tokens->setAccessToken($accessTokens['access_token']);
             $tokens->setRefreshToken($accessTokens['refresh_token']);
-            $tokens->setExpiresAt($accessTokens['expires_at']);
+            $tokens->setExpiresAt(new DateTime('@'.$accessTokens['expires_at']));
             $tokens->setProviderType($providerType);
             $tokens->setProviderId($providerId);
             $this->tokensMapper->update($tokens);
@@ -125,7 +126,7 @@ class TokenService
             $tokens->setUid($uid);
             $tokens->setAccessToken($accessTokens['access_token']);
             $tokens->setRefreshToken($accessTokens['refresh_token']);
-            $tokens->setExpiresAt($accessTokens['expires_at']);
+            $tokens->setExpiresAt(new DateTime('@'.$accessTokens['expires_at']));
             $tokens->setProviderType($providerType);
             $tokens->setProviderId($providerId);
             $this->tokensMapper->insert($tokens);
