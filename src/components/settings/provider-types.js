@@ -143,6 +143,10 @@ export default {
         type: 'text',
         required: false,
       },
+      displayNameClaim: {
+        title: 'Display name claim (optional)',
+        type: 'text',
+      },
       groupsClaim: {
         title: 'Groups claim (optional)',
         type: 'text',

@@ -68,7 +68,6 @@ class ProviderService
         self::TYPE_OIDC => CustomOpenIDConnect::class,
     ];
 
-
     /** @var string */
     private $appName;
     /** @var IRequest */
