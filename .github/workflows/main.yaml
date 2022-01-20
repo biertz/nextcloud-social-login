@@ -23,7 +23,8 @@ jobs:
     steps:
       # ...
       - uses: actions/checkout@v2
-        ref: 'development'
+        with:
+          ref: 'development'
       
       - run: |
           tar -czf sociallogin_devel.tar.gz 3rdparty/ appinfo/ css/ img/ js/ lib/ templates/
