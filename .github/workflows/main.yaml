@@ -1,0 +1,36 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Create development release
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the development branch
+  push:
+    branches: [ development ]
+  pull_request:
+    branches: [ development ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+
+jobs:
+  pre-release:
+    name: "Pre Release"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      # ...
+      - uses: actions/checkout@v2
+      
+      - run: |
+          tar -czf sociallogin_devel.tar.gz 3rdparty/ appinfo/ css/ img/ js/ lib/ templates/
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "devel"
+          prerelease: true
+          title: "Development Build"
+          files: |
+            sociallogin_devel.tar.gz
