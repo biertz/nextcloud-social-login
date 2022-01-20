@@ -228,12 +228,15 @@ class ConfigService
      * Returns the names of all custom providers as an array of strings.
      *
      * @return array
-     * @throws JsonException
      */
     public function getCustomProviderIds(): array
     {
         $providerIds = [];
-        $custom_providers = \Safe\json_decode($this->config->getAppValue($this->appName, 'custom_providers'), true);
+        try {
+            $custom_providers = \Safe\json_decode($this->config->getAppValue($this->appName, 'custom_providers'), true);
+        } catch (JsonException $e) {
+            $custom_providers = null;
+        }
         foreach ($custom_providers as $type) {
             foreach ($type as $provider){
                 $providerIds[] = $provider['name'];
