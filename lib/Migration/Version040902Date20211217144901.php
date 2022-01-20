@@ -65,6 +65,7 @@ class Version040902Date20211217144901 extends SimpleMigrationStep {
                 'notnull' => true,
             ]);
             $table->addUniqueConstraint(['uid', 'provider_id']);
+            $table->setPrimaryKey(['id']);
         }
         return $schema;
     }
