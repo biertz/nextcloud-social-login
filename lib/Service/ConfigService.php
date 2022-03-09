@@ -120,6 +120,9 @@ class ConfigService
 
     public function defaultConfig($provider):array {
         $config = [];
+        $scopes = [
+            'discord' => 'identify email guilds',
+        ];
         $providers = json_decode($this->config->getAppValue($this->appName, 'oauth_providers'), true) ?: [];
         if (is_array($providers) && in_array($provider, array_keys($providers))) {
             foreach ($providers as $name => $prov) {
@@ -129,7 +132,12 @@ class ConfigService
                         'callback' => $callbackUrl,
                         'default_group' => $prov['defaultGroup'],
                         'orgs' => $prov['orgs'] ?? null,
+                        'guilds' => $prov['guilds'] ?? null,
                     ], $this->applyConfigMapping('default', $prov));
+
+                    if (isset($scopes[$name])) {
+                        $config['scope'] = $scopes[$name];
+                    }
 
                     if (isset($prov['auth_params']) && is_array($prov['auth_params'])) {
                         foreach ($prov['auth_params'] as $k => $v) {

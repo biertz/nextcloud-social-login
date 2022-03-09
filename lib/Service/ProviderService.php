@@ -249,6 +249,21 @@ class ProviderService
             $checkOrgs();
         }
 
+        if ($provider === 'discord' && !empty($config['guilds'])) {
+            $allowedGuilds = array_map('trim', explode(',', $config['guilds']));
+            $userGuilds = $adapter->apiRequest('users/@me/guilds');
+            $checkGuilds = function () use ($allowedGuilds, $userGuilds, $config) {
+                foreach ($userGuilds as $guild) {
+                    if (in_array($guild->id ?? null, $allowedGuilds)) {
+                        return;
+                    }
+                }
+                $this->storage->clear();
+                throw new LoginException($this->l->t('Login is available only to members of the following Discord guilds: %s', $config['guilds']));
+            };
+            $checkGuilds();
+        }
+
         if (!empty($config['logout_url'])) {
             $this->session->set('sociallogin_logout_url', $config['logout_url']);
         } else {
@@ -390,10 +405,10 @@ class ProviderService
 
             }
 
-            if (isset($profile->address)) {
-                $account = $this->accountManager->getUser($user);
-                $account['address']['value'] = $profile->address;
-                $this->accountManager->updateUser($user, $account);
+            if (isset($profile->address) && method_exists($this->accountManager, 'updateAccount')) {
+                $account = $this->accountManager->getAccount($user);
+                $account->setProperty(IAccountManager::PROPERTY_ADDRESS, $profile->address, IAccountManager::SCOPE_PRIVATE, IAccountManager::NOT_VERIFIED);
+                $this->accountManager->updateAccount($account);
             }
 
             $defaultGroup = $profile->data['default_group'];
