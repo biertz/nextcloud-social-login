@@ -4,6 +4,8 @@ namespace OCA\SocialLogin\Service;
 
 use DateTime;
 use OC\User\LoginException;
+use OCA\SocialLogin\Db\ConnectedLogin;
+use OCA\SocialLogin\Db\ConnectedLoginMapper;
 use OCA\SocialLogin\Db\Tokens;
 use OCA\SocialLogin\Db\TokensMapper;
 use OCA\SocialLogin\Service\Exceptions\NoTokensException;
@@ -16,19 +18,19 @@ use Psr\Log\LoggerInterface;
 
 class TokenService
 {
-    private $tokensMapper;
-    private $configService;
-    private $logger;
-    private $adapter;
-    private $adapterService;
+    private TokensMapper $tokensMapper;
+    private ConfigService $configService;
+    private LoggerInterface $logger;
+    private AdapterService $adapterService;
+    private ConnectedLoginMapper $connectedLoginMapper;
 
-
-    public function __construct(TokensMapper $tokensMapper, LoggerInterface $logger, ConfigService $configService, AdapterService $adapterService)
+    public function __construct(TokensMapper $tokensMapper, LoggerInterface $logger, ConfigService $configService, AdapterService $adapterService, ConnectedLoginMapper $connectedLoginMapper)
     {
         $this->tokensMapper = $tokensMapper;
         $this->logger = $logger;
         $this->configService = $configService;
         $this->adapterService = $adapterService;
+        $this->connectedLoginMapper = $connectedLoginMapper;
     }
 
     public function authenticate($adapter, $providerType, $providerId){
@@ -54,7 +56,23 @@ class TokenService
         try {
             return $this->tokensMapper->findByConnectedLoginsAndProviderId($uid, $providerId);
         } catch (DoesNotExistException $e) {
-            throw new NoTokensException('Could not find tokens for uid '.$uid.'.');
+            // if not found, retry with connected login
+            try {
+                $identifiers = $this->connectedLoginMapper->getConnectedLogins($uid);
+
+                // connected logins table does not include providerId
+                // but identifier is always preceeded by providerId
+                // so we search for the (first, but it should be only) one that is preceeded by providerId
+                foreach ($identifiers as $identifier) {
+                    // if (preg_match('/^'.preg_quote($providerId, '/').'.*/', $identifier)) {
+                    if (preg_match('/^'.preg_quote($providerId, '/').'.*/', $identifier)) {
+                        return $this->tokensMapper->findByConnectedLoginsAndProviderId($identifier, $providerId);
+                    }
+                }
+                throw new NoTokensException('Could not find tokens for uid '.$uid.'.');
+            } catch (DoesNotExistException $e) {
+                throw new NoTokensException('Could not find tokens for uid '.$uid.'.');
+            }
         } catch (MultipleObjectsReturnedException $e) {
             throw new TokensException('There should be only one set of tokens per user, but we found multiple!');
         } catch (Exception $e) {
@@ -115,7 +133,7 @@ class TokenService
             $config = $this->configService->customConfig($tokens->getProviderType(), $tokens->getProviderId());
 
             try {
-                $this->adapter = $this->adapterService->new(ConfigService::TYPE_CLASSES[$tokens->getProviderType()],
+                $adapter = $this->adapterService->new(ConfigService::TYPE_CLASSES[$tokens->getProviderType()],
                     $config, null);
             } catch (\Exception $e) {
                 throw new TokensException($e->getMessage());
@@ -128,7 +146,7 @@ class TokenService
                 'refresh_token' => $tokens->getRefreshToken(),
                 'scope' => $config['scope']
             );
-            $response = $this->adapter->refreshAccessToken($parameters);#
+            $response = $adapter->refreshAccessToken($parameters);#
             $responseArr = json_decode($response, true);
 
             $this->logger->info("Saving refreshed token for {uid}.", array('uid' => $tokens->getUid()));
