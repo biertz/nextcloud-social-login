@@ -27,7 +27,10 @@ jobs:
           ref: 'development'
       
       - run: |
-          tar -czf sociallogin_devel.tar.gz 3rdparty/ appinfo/ css/ img/ js/ lib/ templates/
+          mkdir sociallogin
+          cp 3rdparty appinfo css img js lib templates sociallogin/
+          tar -czf sociallogin_devel.tar.gz sociallogin
+
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
