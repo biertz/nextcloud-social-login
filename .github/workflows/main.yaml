@@ -28,7 +28,7 @@ jobs:
       
       - run: |
           mkdir sociallogin
-          cp 3rdparty appinfo css img js lib templates sociallogin/
+          cp -r 3rdparty appinfo css img js lib templates sociallogin/
           tar -czf sociallogin_devel.tar.gz sociallogin
 
       - uses: "marvinpinto/action-automatic-releases@latest"
