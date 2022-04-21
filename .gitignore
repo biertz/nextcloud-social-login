@@ -3,3 +3,4 @@ release.tar.gz
 node_modules
 /vendor/
 tags
+*.swp

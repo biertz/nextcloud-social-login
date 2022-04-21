@@ -143,6 +143,10 @@ export default {
         type: 'text',
         required: false,
       },
+      displayNameClaim: {
+        title: 'Display name claim (optional)',
+        type: 'text',
+      },
       groupsClaim: {
         title: 'Groups claim (optional)',
         type: 'text',
@@ -190,6 +194,37 @@ export default {
       },
       clientSecret: {
         title: 'Consumer Secret',
+        type: 'password',
+        required: true,
+      },
+    }
+  },
+  custom_discourse: {
+    title: 'Custom Discourse',
+    hasGroupMapping: true,
+    fields: {
+      name: {
+        title: 'Internal name',
+        type: 'text',
+        required: true,
+      },
+      title: {
+        title: 'Title',
+        type: 'text',
+        required: true,
+      },
+      baseUrl: {
+        title: 'Base url',
+        type: 'text',
+        required: true,
+      },
+      logoutUrl: {
+        title: 'Logout URL (optional)',
+        type: 'url',
+        required: false,
+      },
+      ssoSecret: {
+        title: 'SSO Secret',
         type: 'password',
         required: true,
       },

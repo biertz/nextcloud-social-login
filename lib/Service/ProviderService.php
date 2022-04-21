@@ -5,8 +5,9 @@ namespace OCA\SocialLogin\Service;
 use Hybridauth\Provider;
 use Hybridauth\User\Profile;
 use Hybridauth\HttpClient\Curl;
-use OC\Authentication\Token\DefaultTokenProvider;
+use OC\Authentication\Token\IProvider;
 use OC\User\LoginException;
+use OCA\SocialLogin\Provider\CustomDiscourse;
 use OCA\SocialLogin\Provider\CustomOAuth1;
 use OCA\SocialLogin\Provider\CustomOAuth2;
 use OCA\SocialLogin\Provider\CustomOpenIDConnect;
@@ -56,19 +57,6 @@ class ProviderService
         'yandex',
     ];
 
-    const TYPE_OPENID = 'openid';
-    const TYPE_OAUTH1 = 'custom_oauth1';
-    const TYPE_OAUTH2 = 'custom_oauth2';
-    const TYPE_OIDC = 'custom_oidc';
-
-    const TYPE_CLASSES = [
-        self::TYPE_OPENID => Provider\OpenID::class,
-        self::TYPE_OAUTH1 => CustomOAuth1::class,
-        self::TYPE_OAUTH2 => CustomOAuth2::class,
-        self::TYPE_OIDC => CustomOpenIDConnect::class,
-    ];
-
-
     /** @var string */
     private $appName;
     /** @var IRequest */
@@ -99,7 +87,7 @@ class ProviderService
     private $accountManager;
     /** @var IEventDispatcher */
     private $dispatcher;
-    /** @var DefaultTokenProvider */
+    /** @var IProvider */
     private $tokenProvider;
     /** @var AdapterService  */
     private $adapterService;
@@ -124,7 +112,7 @@ class ProviderService
         ConnectedLoginMapper $socialConnect,
         IAccountManager $accountManager,
         IEventDispatcher $dispatcher,
-        DefaultTokenProvider $tokenProvider,
+        IProvider $tokenProvider,
         AdapterService $adapterService,
         ConfigService $configService,
         TokenService $tokenService
@@ -261,6 +249,21 @@ class ProviderService
             $checkOrgs();
         }
 
+        if ($provider === 'discord' && !empty($config['guilds'])) {
+            $allowedGuilds = array_map('trim', explode(',', $config['guilds']));
+            $userGuilds = $adapter->apiRequest('users/@me/guilds');
+            $checkGuilds = function () use ($allowedGuilds, $userGuilds, $config) {
+                foreach ($userGuilds as $guild) {
+                    if (in_array($guild->id ?? null, $allowedGuilds)) {
+                        return;
+                    }
+                }
+                $this->storage->clear();
+                throw new LoginException($this->l->t('Login is available only to members of the following Discord guilds: %s', $config['guilds']));
+            };
+            $checkGuilds();
+        }
+
         if (!empty($config['logout_url'])) {
             $this->session->set('sociallogin_logout_url', $config['logout_url']);
         } else {
@@ -340,11 +343,7 @@ class ProviderService
 
         if ($updateUserProfile) {
             $user->setDisplayName($profile->displayName ?: $profile->identifier);
-            if (method_exists($user, 'setSystemEMailAddress')) {
-                $user->setSystemEMailAddress((string)$profile->email);
-            } else {
-                $user->setEMailAddress((string)$profile->email);
-            }
+            $user->setSystemEMailAddress((string)$profile->email);
 
             if ($profile->photoURL) {
                 $curl = new Curl();
@@ -403,9 +402,9 @@ class ProviderService
             }
 
             if (isset($profile->address)) {
-                $account = $this->accountManager->getUser($user);
-                $account['address']['value'] = $profile->address;
-                $this->accountManager->updateUser($user, $account);
+                $account = $this->accountManager->getAccount($user);
+                $account->setProperty(IAccountManager::PROPERTY_ADDRESS, $profile->address, IAccountManager::SCOPE_PRIVATE, IAccountManager::NOT_VERIFIED);
+                $this->accountManager->updateAccount($account);
             }
 
             $defaultGroup = $profile->data['default_group'];

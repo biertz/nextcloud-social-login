@@ -87,7 +87,7 @@
           </option>
         </select>
       </label>
-      <template v-if="name === 'google'">
+      <template v-if="['google', 'yandex'].includes(name)">
         <br/>
         <label>
           {{ t('Allow login only from specified domain') }}<br/>
@@ -99,6 +99,13 @@
         <label>
           {{ t('Allow login only for specified organizations') }}<br/>
           <input type="text" :name="'providers['+name+'][orgs]'" :value="provider.orgs"/>
+        </label>
+      </template>
+      <template v-if="name === 'discord'">
+        <br/>
+        <label>
+          {{ t('Allow login only for specified guilds') }}<br/>
+          <input type="text" :name="'providers['+name+'][guilds]'" :value="provider.guilds"/>
         </label>
       </template>
     </div>

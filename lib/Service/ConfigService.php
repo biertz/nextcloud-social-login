@@ -61,6 +61,7 @@ class ConfigService
                 'profile_url'    => 'profileUrl',
             ],
             'profile_fields' => 'profileFields',
+            'displayname_claim' => 'displayNameClaim',
             'groups_claim'  => 'groupsClaim',
             'group_mapping' => 'groupMapping',
             'logout_url'    => 'logoutUrl',
@@ -82,18 +83,30 @@ class ConfigService
             'logout_url'    => 'logoutUrl',
             'saveTokens' => 'saveTokens',
         ],
+        self::TYPE_DISCOURSE => [
+            'keys' => [
+                'secret' => 'ssoSecret',
+            ],
+            'endpoints' => [
+                'base_url'    => 'baseUrl',
+            ],
+            'group_mapping' => 'groupMapping',
+            'logout_url'    => 'logoutUrl',
+        ],
     ];
 
     const TYPE_OPENID = 'openid';
     const TYPE_OAUTH1 = 'custom_oauth1';
     const TYPE_OAUTH2 = 'custom_oauth2';
     const TYPE_OIDC = 'custom_oidc';
+    const TYPE_DISCOURSE = 'custom_discourse';
 
     const TYPE_CLASSES = [
         self::TYPE_OPENID => Provider\OpenID::class,
         self::TYPE_OAUTH1 => CustomOAuth1::class,
         self::TYPE_OAUTH2 => CustomOAuth2::class,
         self::TYPE_OIDC => CustomOpenIDConnect::class,
+        self::TYPE_DISCOURSE => CustomDiscourse::class,
     ];
 
     public function __construct($appName, TokensMapper $tokensMapper, IDBConnection $db, IJobList $jobList, IConfig $config, IURLGenerator $urlGenerator){
@@ -107,6 +120,9 @@ class ConfigService
 
     public function defaultConfig($provider):array {
         $config = [];
+        $scopes = [
+            'discord' => 'identify email guilds',
+        ];
         $providers = json_decode($this->config->getAppValue($this->appName, 'oauth_providers'), true) ?: [];
         if (is_array($providers) && in_array($provider, array_keys($providers))) {
             foreach ($providers as $name => $prov) {
@@ -116,7 +132,12 @@ class ConfigService
                         'callback' => $callbackUrl,
                         'default_group' => $prov['defaultGroup'],
                         'orgs' => $prov['orgs'] ?? null,
+                        'guilds' => $prov['guilds'] ?? null,
                     ], $this->applyConfigMapping('default', $prov));
+
+                    if (isset($scopes[$name])) {
+                        $config['scope'] = $scopes[$name];
+                    }
 
                     if (isset($prov['auth_params']) && is_array($prov['auth_params'])) {
                         foreach ($prov['auth_params'] as $k => $v) {
@@ -215,12 +236,15 @@ class ConfigService
      * Returns the names of all custom providers as an array of strings.
      *
      * @return array
-     * @throws JsonException
      */
     public function getCustomProviderIds(): array
     {
         $providerIds = [];
-        $custom_providers = \Safe\json_decode($this->config->getAppValue($this->appName, 'custom_providers'), true);
+        try {
+            $custom_providers = \Safe\json_decode($this->config->getAppValue($this->appName, 'custom_providers'), true);
+        } catch (JsonException $e) {
+            $custom_providers = null;
+        }
         foreach ($custom_providers as $type) {
             foreach ($type as $provider){
                 $providerIds[] = $provider['name'];
