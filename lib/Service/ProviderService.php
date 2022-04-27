@@ -55,6 +55,7 @@ class ProviderService
         'telegram',
         'mailru',
         'yandex',
+        'BitBucket',
     ];
 
     /** @var string */
@@ -247,6 +248,27 @@ class ProviderService
                 throw new LoginException($this->l->t('Login is available only to members of the following GitHub organizations: %s', $config['orgs']));
             };
             $checkOrgs();
+        }
+
+        if ($provider === 'BitBucket') {
+            if (empty($config['workspace'])) {
+                throw new LoginException($this->l->t('Invalid setup for Bitbucket workspaces', $config['workspace']));
+            }
+            $allowedWorks = array_map('trim', explode(',', $config['workspace']));
+            $username = $adapter->apiRequest('user')->login;
+            $checkWorks = function () use ($adapter, $allowedWorks, $username, $config) {
+                try {
+                   $workspaceData = $adapter->apiRequest('workspaces');
+                   $get_slug = fn($w): string => $w->slug;
+                   $workspaces = array_map($get_slug, $workspaceData->values);
+                   $workspaces = array_intersect($workspaces, $allowedWorks);
+                   if (count($workspaces) > 0)
+                     return;
+                } catch (\Exception $e) {}
+                $this->storage->clear();
+                throw new LoginException($this->l->t('Login is available only to members of the following Bitbucket workspaces: %s', $config['workspace']));
+            };
+            $checkWorks();
         }
 
         if ($provider === 'discord' && !empty($config['guilds'])) {

@@ -132,6 +132,7 @@ class ConfigService
                         'callback' => $callbackUrl,
                         'default_group' => $prov['defaultGroup'],
                         'orgs' => $prov['orgs'] ?? null,
+                        'workspace' => $prov['workspace'] ?? null,
                         'guilds' => $prov['guilds'] ?? null,
                     ], $this->applyConfigMapping('default', $prov));
 
