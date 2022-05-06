@@ -24,7 +24,7 @@ use OCP\Util;
 
 class Application extends App implements IBootstrap
 {
-    private $appName = 'sociallogin';
+    private $appName = 'socialtokens';
     private $regContext;
 
     public function __construct()
