@@ -27,9 +27,9 @@ jobs:
           ref: 'development'
       
       - run: |
-          mkdir sociallogin
-          cp -r 3rdparty appinfo css img js lib templates sociallogin/
-          tar -czf sociallogin_devel.tar.gz sociallogin
+          mkdir socialtokens
+          cp -r 3rdparty appinfo css img js lib templates socialtokens/
+          tar -czf socialtokens_devel.tar.gz socialtokens
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
@@ -38,4 +38,4 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            sociallogin_devel.tar.gz
+            socialtokens_devel.tar.gz
