@@ -27,9 +27,10 @@ jobs:
           ref: 'master'
       
       - run: |
-          mkdir sociallogin
-          cp -r 3rdparty appinfo css img js lib templates sociallogin/
-          tar -czf sociallogin_latest.tar.gz sociallogin
+          mkdir socialtokens
+          cp -r 3rdparty appinfo css img js lib templates socialtokens/
+          tar -czf socialtokens_latest.tar.gz socialtokens
+
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -37,4 +38,4 @@ jobs:
           prerelease: false
           title: "Latest Release Build"
           files: |
-            sociallogin_latest.tar.gz
+            socialtokens_latest.tar.gz
