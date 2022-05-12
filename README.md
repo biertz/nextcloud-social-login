@@ -7,3 +7,9 @@ This allows a Nextcloud to interact with other of your services on behalf of you
 As these changes include major code splits and cron logics, they are out-of-scope of the original app, so we maintain them separately.
 
 Currently, we maintain this fork for our own purposes and do not provide proper releases. Feel free to reach out to us, if you would like us to do so.
+
+## NB
+### appid
+We changed the appid to *socialtokens*. 
+
+This avoids accidental updates of our fork via Nextclouds appstore. Please be aware, that this does NOT mean that you can install sociallogin and our fork together! They still use the same folder name and namespace.
