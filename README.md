@@ -12,4 +12,4 @@ Currently, we maintain this fork for our own purposes and do not provide proper 
 ### appid
 We changed the appid to *socialtokens*. 
 
-This avoids accidental updates of our fork via Nextclouds appstore. Please be aware, that this does NOT mean that you can install sociallogin and our fork together! They still use the same folder name and namespace.
+This avoids accidental updates of our fork via Nextclouds appstore. Please be aware, that this does NOT mean that you can install sociallogin and our fork together! They still use the same namespace.

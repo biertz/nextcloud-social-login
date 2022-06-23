@@ -3,6 +3,7 @@
 namespace OCA\SocialLogin\Service;
 
 use DateTime;
+use Hybridauth\Exception\HttpRequestFailedException;
 use OC\User\LoginException;
 use OCA\SocialLogin\Db\ConnectedLogin;
 use OCA\SocialLogin\Db\ConnectedLoginMapper;
@@ -83,10 +84,12 @@ class TokenService
     /**
      * Refreshes all pairs of tokens for all users.
      *
+     * @param bool $skipFailed Switch that enables skipping refresh that have failed in the past. Defaults to false.
+     *
      * @throws TokensException
      * @throws LoginException
      */
-    public function refreshAllTokens(): void
+    public function refreshAllTokens(bool $skipFailed=false): void
     {
         try {
             $allTokens = $this->tokensMapper->findAll();
@@ -98,7 +101,7 @@ class TokenService
             return;
         }
         foreach ($allTokens as $tokens) {
-            $this->refreshTokens($tokens);
+            $this->refreshTokens($tokens, $skipFailed);
         }
     }
 
@@ -121,11 +124,18 @@ class TokenService
     /**
      * Refresh a set of tokens, if it is not to be deleted.
      *
+     * @param bool $skipFailed Switch that enables skipping refreshs that have failed in the past. Defaults to false.
+     *
      * @throws LoginException
      * @throws TokensException
      */
-    private function refreshTokens(Tokens $tokens): void
+    private function refreshTokens(Tokens $tokens, bool $skipFailed = false): void
     {
+        if ($skipFailed && $tokens->getHasFailed()) {
+            $this->logger->debug('Skipping tokens for {uid}, as they have failed in the past.', array('uid' => $tokens->getUid()));
+            return;
+        }
+
         if ($this->deleteOldTokens($tokens)) {
             return;
         }
@@ -146,7 +156,14 @@ class TokenService
                 'refresh_token' => $tokens->getRefreshToken(),
                 'scope' => $config['scope']
             );
-            $response = $adapter->refreshAccessToken($parameters);#
+            try {
+                $response = $adapter->refreshAccessToken($parameters);#
+            } catch (HttpRequestFailedException $e) {
+                $this->logger->info('Refreshing token for {uid} failed.', array('uid' => $tokens->getUid()));
+                $tokens->setHasFailed(true);
+                $this->tokensMapper->update($tokens);
+                return;
+            }
             $responseArr = json_decode($response, true);
 
             $this->logger->info("Saving refreshed token for {uid}.", array('uid' => $tokens->getUid()));
@@ -192,7 +209,7 @@ class TokenService
     }
 
     /**
-     * Delete keys from formerly active instances.
+     * Delete keys from identity providers that are no longer active.
      *
      * @returns bool Whether the tokens had to be deleted.
      * @throws TokensException
@@ -204,7 +221,7 @@ class TokenService
 
         if (!array_key_exists('saveTokens', $config) || $config['saveTokens'] != true) {
             try {
-                $this->tokensMapper->delete($tokens); // Delete keys from formerly active instances.
+                $this->tokensMapper->delete($tokens); // Delete keys from formerly active identity providers.
             } catch (Exception $e) {
                 throw new TokensException($e->getMessage());
             }
@@ -217,6 +234,7 @@ class TokenService
     /**
      * Checks whether an access token has expired. Treats any token as expired that would expire before the next cron
      * execution.
+     *
      * @param Tokens $tokens
      * @return bool
      * @throws \Exception

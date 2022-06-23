@@ -2,10 +2,11 @@
 
 namespace OCA\SocialLogin\Task;
 
+use OC\User\LoginException;
 use OCA\SocialLogin\Db\TokensMapper;
+use OCA\SocialLogin\Service\Exceptions\TokensException;
 use OCA\SocialLogin\Service\TokenService;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\BackgroundJob\IJobList;
 use OCP\BackgroundJob\TimedJob;
 use Psr\Log\LoggerInterface;
 
@@ -28,13 +29,16 @@ class RefreshTokensTask extends TimedJob
     }
 
     /**
+     * Refreshes all tokens periodically, but skips those which have failed in the past.
+     *
      * @inheritDoc
-     * @throws \Hybridauth\Exception\Exception
+     * @throws TokensException
+     * @throws LoginException
      */
     protected function run($argument)
     {
             $this->logger->info('Refresh cron is running.');
-            $this->tokenService->refreshAllTokens();
+            $this->tokenService->refreshAllTokens(true);
             $this->logger->info('Refresh cron ran.');
     }
 }

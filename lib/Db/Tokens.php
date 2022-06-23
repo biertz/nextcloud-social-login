@@ -20,6 +20,8 @@ class Tokens extends Entity
     protected $providerType;
     /** @var string */
     protected $providerId;
+    /** @var bool */
+    protected $hasFailed=false;
 
     public function __construct() {
         $this->addType('uid', Types::STRING);
@@ -28,5 +30,6 @@ class Tokens extends Entity
         $this->addType('expiresAt', Types::DATETIME);
         $this->addType('providerType', Types::STRING);
         $this->addType('providerId', Types::STRING);
+        $this->addType('hasFailed', Types::BOOLEAN);
     }
 }
