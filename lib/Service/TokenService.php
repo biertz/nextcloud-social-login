@@ -192,7 +192,7 @@ class TokenService
     }
 
     /**
-     * Delete keys from formerly active instances.
+     * Delete keys from identity providers that are no longer active.
      *
      * @returns bool Whether the tokens had to be deleted.
      * @throws TokensException
@@ -204,7 +204,7 @@ class TokenService
 
         if (!array_key_exists('saveTokens', $config) || $config['saveTokens'] != true) {
             try {
-                $this->tokensMapper->delete($tokens); // Delete keys from formerly active instances.
+                $this->tokensMapper->delete($tokens); // Delete keys from formerly active identity providers.
             } catch (Exception $e) {
                 throw new TokensException($e->getMessage());
             }
@@ -217,6 +217,7 @@ class TokenService
     /**
      * Checks whether an access token has expired. Treats any token as expired that would expire before the next cron
      * execution.
+     *
      * @param Tokens $tokens
      * @return bool
      * @throws \Exception
