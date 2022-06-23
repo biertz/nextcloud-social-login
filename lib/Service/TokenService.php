@@ -84,10 +84,12 @@ class TokenService
     /**
      * Refreshes all pairs of tokens for all users.
      *
+     * @param bool $skipFailed Switch that enables skipping refresh that have failed in the past. Defaults to false.
+     *
      * @throws TokensException
      * @throws LoginException
      */
-    public function refreshAllTokens(): void
+    public function refreshAllTokens(bool $skipFailed=false): void
     {
         try {
             $allTokens = $this->tokensMapper->findAll();
@@ -99,7 +101,7 @@ class TokenService
             return;
         }
         foreach ($allTokens as $tokens) {
-            $this->refreshTokens($tokens);
+            $this->refreshTokens($tokens, $skipFailed);
         }
     }
 
@@ -122,11 +124,18 @@ class TokenService
     /**
      * Refresh a set of tokens, if it is not to be deleted.
      *
+     * @param bool $skipFailed Switch that enables skipping refreshs that have failed in the past. Defaults to false.
+     *
      * @throws LoginException
      * @throws TokensException
      */
-    private function refreshTokens(Tokens $tokens): void
+    private function refreshTokens(Tokens $tokens, bool $skipFailed = false): void
     {
+        if ($skipFailed && $tokens->getHasFailed()) {
+            $this->logger->debug('Skipping tokens for {uid}, as they have failed in the past.', array('uid' => $tokens->getUid()));
+            return;
+        }
+
         if ($this->deleteOldTokens($tokens)) {
             return;
         }
