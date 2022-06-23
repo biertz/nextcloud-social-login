@@ -3,6 +3,7 @@
 namespace OCA\SocialLogin\Service;
 
 use DateTime;
+use Hybridauth\Exception\HttpRequestFailedException;
 use OC\User\LoginException;
 use OCA\SocialLogin\Db\ConnectedLogin;
 use OCA\SocialLogin\Db\ConnectedLoginMapper;
@@ -146,7 +147,14 @@ class TokenService
                 'refresh_token' => $tokens->getRefreshToken(),
                 'scope' => $config['scope']
             );
-            $response = $adapter->refreshAccessToken($parameters);#
+            try {
+                $response = $adapter->refreshAccessToken($parameters);#
+            } catch (HttpRequestFailedException $e) {
+                $this->logger->info('Refreshing token for {uid} failed.', array('uid' => $tokens->getUid()));
+                $tokens->setHasFailed(true);
+                $this->tokensMapper->update($tokens);
+                return;
+            }
             $responseArr = json_decode($response, true);
 
             $this->logger->info("Saving refreshed token for {uid}.", array('uid' => $tokens->getUid()));
