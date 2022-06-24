@@ -91,7 +91,7 @@ class TokenService
     /**
      * Refreshes all pairs of tokens for all users.
      *
-     * @param bool $skipFailed Switch that enables skipping refresh that have failed in the past. Defaults to false.
+     * @param bool $skipFailed Switch that enables skipping refreshes that have failed in the past. Defaults to false.
      *
      * @throws TokensException
      * @throws LoginException
@@ -129,9 +129,9 @@ class TokenService
     }
 
     /**
-     * Refresh a set of tokens, if it is not to be deleted.
+     * Refresh a set of tokens, if it is not orphaned and expired.
      *
-     * @param bool $skipFailed Switch that enables skipping refreshs that have failed in the past. Defaults to false.
+     * @param bool $skipFailed Switch that enables skipping refreshes that have failed in the past. Defaults to false.
      *
      * @throws LoginException
      * @throws TokensException
@@ -187,9 +187,11 @@ class TokenService
      */
     public function saveTokens(array $accessTokens, string $uid, string $providerType, string $providerId): void
     {
+        // If response did not include "expires_at", calculate and add it here.
         if (!array_key_exists('expires_at', $accessTokens) && array_key_exists('expires_in', $accessTokens)) {
             $accessTokens['expires_at'] = time() + $accessTokens['expires_in'];
         }
+
         try {
             // $this->tokensMapper->insertOrUpdate($tokens) would fail, see https://github.com/nextcloud/server/issues/21705
             try {
