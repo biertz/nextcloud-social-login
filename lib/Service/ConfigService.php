@@ -3,8 +3,8 @@
 namespace OCA\SocialLogin\Service;
 
 use OC\User\LoginException;
-use OCA\SocialLogin\AppInfo\Application;
 use OCA\SocialLogin\Db\TokensMapper;
+use OCA\SocialLogin\Provider\CustomDiscourse;
 use OCA\SocialLogin\Provider\CustomOAuth1;
 use OCA\SocialLogin\Provider\CustomOAuth2;
 use OCA\SocialLogin\Provider\CustomOpenIDConnect;
@@ -15,6 +15,14 @@ use OCP\IURLGenerator;
 use Hybridauth\Provider;
 use Safe\Exceptions\JsonException;
 
+/**
+ * This class is mainly an excerpt of upstream's ProviderService
+ * which I required to be in a separate service to implement the logics
+ * I needed.
+ *
+ * Thus:
+ * @author zorn-v
+ */
 class ConfigService
 {
     private $appName;

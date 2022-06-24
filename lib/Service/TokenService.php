@@ -17,6 +17,13 @@ use OCP\AppFramework\Db\MultipleObjectsReturnedException;
 use OCP\DB\Exception;
 use Psr\Log\LoggerInterface;
 
+/**
+ * This is the central service of this fork, based in part on logics from upstream's ProviderService,
+ * but also adding new logics.
+ *
+ * @author Manuel Biertz (mab@leibniz-psychology.org)
+ * @author zorn-v
+ */
 class TokenService
 {
     private TokensMapper $tokensMapper;
@@ -55,7 +62,7 @@ class TokenService
      */
     public function get(string $uid, string $providerId): Tokens {
         try {
-            return $this->tokensMapper->findByConnectedLoginsAndProviderId($uid, $providerId);
+            return $this->tokensMapper->find($uid, $providerId);
         } catch (DoesNotExistException $e) {
             // if not found, retry with connected login
             try {
@@ -67,7 +74,7 @@ class TokenService
                 foreach ($identifiers as $identifier) {
                     // if (preg_match('/^'.preg_quote($providerId, '/').'.*/', $identifier)) {
                     if (preg_match('/^'.preg_quote($providerId, '/').'.*/', $identifier)) {
-                        return $this->tokensMapper->findByConnectedLoginsAndProviderId($identifier, $providerId);
+                        return $this->tokensMapper->find($identifier, $providerId);
                     }
                 }
                 throw new NoTokensException('Could not find tokens for uid '.$uid.'.');
@@ -82,9 +89,11 @@ class TokenService
     }
 
     /**
-     * Refreshes all pairs of tokens for all users.
+     * Refreshes all pairs of tokens for all users that are due for renewal (= access token expired).
      *
-     * @param bool $skipFailed Switch that enables skipping refresh that have failed in the past. Defaults to false.
+     * Skips and removes orphaned token.
+     *
+     * @param bool $skipFailed Switch that enables skipping refreshes that have failed in the past. Defaults to false.
      *
      * @throws TokensException
      * @throws LoginException
@@ -101,14 +110,22 @@ class TokenService
             return;
         }
         foreach ($allTokens as $tokens) {
-            $this->refreshTokens($tokens, $skipFailed);
+            if ($skipFailed && $tokens->getHasFailed()) {
+                $this->logger->debug('Skipping tokens for {uid}, as they have failed in the past.', array('uid' => $tokens->getUid()));
+                continue;
+            }
+            // Check whether tokens are orphaned and delete them, if so.
+            if ($this->deleteOrphanedTokens($tokens)) {
+                continue;
+            }
+
+            $this->refreshExpiredTokens($tokens);
         }
     }
 
     /**
-     * Refresh a user's tokens for a single provider.
+     * Refresh a user's tokens for a single provider, if the access token is expired.
      *
-     * @throws LoginException
      * @throws TokensException
      */
     public function refreshUserTokens(string $uid, string $providerId): void
@@ -118,28 +135,31 @@ class TokenService
         } catch (NoTokensException $e) {
             return;
         }
-        $this->refreshTokens($tokens);
+
+        $this->refreshExpiredTokens($tokens);
     }
 
     /**
-     * Refresh a set of tokens, if it is not to be deleted.
-     *
-     * @param bool $skipFailed Switch that enables skipping refreshs that have failed in the past. Defaults to false.
+     * Refreshes a set of tokens after checking its orphanage and expiry status.
+     */
+    private function refreshExpiredTokens(Tokens $tokens): void
+    {
+        if ($tokens->isExpired()) {
+            $this->refreshTokens($tokens);
+        } else {
+            $this->logger->info("Token for {uid} has not yet expired.", array('uid' => $tokens->getUid()));
+        }
+    }
+
+    /**
+     * Refreshes a set of tokens without checking for expiry status. If the refresh fails, failure is documented.
      *
      * @throws LoginException
      * @throws TokensException
+     * @throws Exception
      */
-    private function refreshTokens(Tokens $tokens, bool $skipFailed = false): void
+    private function refreshTokens(Tokens $tokens): void
     {
-        if ($skipFailed && $tokens->getHasFailed()) {
-            $this->logger->debug('Skipping tokens for {uid}, as they have failed in the past.', array('uid' => $tokens->getUid()));
-            return;
-        }
-
-        if ($this->deleteOldTokens($tokens)) {
-            return;
-        }
-        if ($this->hasAccessTokenExpired($tokens)) {
             $config = $this->configService->customConfig($tokens->getProviderType(), $tokens->getProviderId());
 
             try {
@@ -169,9 +189,6 @@ class TokenService
             $this->logger->info("Saving refreshed token for {uid}.", array('uid' => $tokens->getUid()));
 
             $this->saveTokens($responseArr, $tokens->getUid(), $tokens->getProviderType(), $tokens->getProviderId());
-        } else {
-            $this->logger->info("Token for {uid} has not yet expired.", array('uid' => $tokens->getUid()));
-        }
     }
 
 
@@ -180,9 +197,11 @@ class TokenService
      */
     public function saveTokens(array $accessTokens, string $uid, string $providerType, string $providerId): void
     {
+        // If response did not include "expires_at", calculate and add it here.
         if (!array_key_exists('expires_at', $accessTokens) && array_key_exists('expires_in', $accessTokens)) {
             $accessTokens['expires_at'] = time() + $accessTokens['expires_in'];
         }
+
         try {
             // $this->tokensMapper->insertOrUpdate($tokens) would fail, see https://github.com/nextcloud/server/issues/21705
             try {
@@ -192,6 +211,7 @@ class TokenService
                 $tokens->setExpiresAt(new DateTime('@' . $accessTokens['expires_at']));
                 $tokens->setProviderType($providerType);
                 $tokens->setProviderId($providerId);
+                $tokens->setHasFailed(false);
                 $this->tokensMapper->update($tokens);
             } catch (NoTokensException $e) {
                 $tokens = new Tokens();
@@ -201,6 +221,7 @@ class TokenService
                 $tokens->setExpiresAt(new DateTime('@' . $accessTokens['expires_at']));
                 $tokens->setProviderType($providerType);
                 $tokens->setProviderId($providerId);
+                $tokens->setHasFailed(false);
                 $this->tokensMapper->insert($tokens);
             }
         } catch (Exception $e) {
@@ -209,39 +230,26 @@ class TokenService
     }
 
     /**
-     * Delete keys from identity providers that are no longer active.
+     * Checks whether a tokens are orphaned and deletes them, if so.
      *
      * @returns bool Whether the tokens had to be deleted.
      * @throws TokensException
      * @throws LoginException
      */
-    private function deleteOldTokens(Tokens $tokens): bool
+    private function deleteOrphanedTokens(Tokens $tokens): bool
     {
-        $config = $this->configService->customConfig($tokens->getProviderType(), $tokens->getProviderId());
-
-        if (!array_key_exists('saveTokens', $config) || $config['saveTokens'] != true) {
+        if ($tokens->isOrphaned($this->configService)) {
             try {
                 $this->tokensMapper->delete($tokens); // Delete keys from formerly active identity providers.
+                $this->logger->warning("Deleted orphaned {provider} key of {uid}.", array(
+                    'uid' => $tokens->getUid(),
+                    'provider' => $tokens->getProviderId()
+                ));
             } catch (Exception $e) {
                 throw new TokensException($e->getMessage());
             }
-            $this->logger->warning("Deleted old key by {uid}.", array('uid' => $tokens->getUid()));
             return true;
         }
         return false;
-    }
-
-    /**
-     * Checks whether an access token has expired. Treats any token as expired that would expire before the next cron
-     * execution.
-     *
-     * @param Tokens $tokens
-     * @return bool
-     * @throws \Exception
-     */
-    protected function hasAccessTokenExpired(Tokens $tokens): bool
-    {
-        $t = time() + RefreshTokensTask::$REFRESH_TOKENS_JOB_INTERVAL + 1;
-        return $tokens->getExpiresAt() < new DateTime('@'.$t);
     }
 }

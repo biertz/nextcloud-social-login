@@ -3,9 +3,17 @@
 namespace OCA\SocialLogin\Db;
 
 use DateTime;
+use Exception;
+use OC\User\LoginException;
+use OCA\SocialLogin\Service\ConfigService;
+use OCA\SocialLogin\Service\TokenService;
+use OCA\SocialLogin\Task\RefreshTokensTask;
 use OCP\AppFramework\Db\Entity;
 use OCP\DB\Types;
 
+/**
+ * The Tokens objects holds a user's access and refresh tokens for a provider.
+ */
 class Tokens extends Entity
 {
     /** @var string Nextcloud user id */
@@ -31,5 +39,31 @@ class Tokens extends Entity
         $this->addType('providerType', Types::STRING);
         $this->addType('providerId', Types::STRING);
         $this->addType('hasFailed', Types::BOOLEAN);
+    }
+
+    /**
+     * Checks whether an access token has expired. Treats any token as expired that would expire before the next cron
+     * execution.
+     *
+     * @return bool
+     * @throws Exception
+     */
+    public function isExpired(): bool
+    {
+        $t = time() + RefreshTokensTask::$REFRESH_TOKENS_JOB_INTERVAL + 1;
+        return $this->getExpiresAt() < new DateTime('@' . $t);
+    }
+
+    /**
+     * Checks whether a set of tokens is orphaned, i.e. its identity provider is no longer active.
+     *
+     * @param ConfigService $configService
+     * @return bool
+     * @throws LoginException
+     */
+    public function isOrphaned(ConfigService $configService): bool {
+        $config = $configService->customConfig($this->getProviderType(), $this->getProviderId());
+
+        return !array_key_exists('saveTokens', $config) || $config['saveTokens'] != true;
     }
 }
