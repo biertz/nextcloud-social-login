@@ -28,6 +28,11 @@ use OCP\Mail\IMailer;
 use OCP\Security\CSP\AddContentSecurityPolicyEvent;
 use OCP\Util;
 
+/**
+ * A reduced version of upstream's ProviderService. Some logic is separated into AdapterService and ProviderService
+ * to enable logics required in this fork, but still:
+ * @author zorn-v
+ */
 class ProviderService
 {
     const OPTIONS = [
