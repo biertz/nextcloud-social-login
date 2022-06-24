@@ -211,6 +211,7 @@ class TokenService
                 $tokens->setExpiresAt(new DateTime('@' . $accessTokens['expires_at']));
                 $tokens->setProviderType($providerType);
                 $tokens->setProviderId($providerId);
+                $tokens->setHasFailed(false);
                 $this->tokensMapper->update($tokens);
             } catch (NoTokensException $e) {
                 $tokens = new Tokens();
@@ -220,6 +221,7 @@ class TokenService
                 $tokens->setExpiresAt(new DateTime('@' . $accessTokens['expires_at']));
                 $tokens->setProviderType($providerType);
                 $tokens->setProviderId($providerId);
+                $tokens->setHasFailed(false);
                 $this->tokensMapper->insert($tokens);
             }
         } catch (Exception $e) {
