@@ -17,6 +17,13 @@ use OCP\AppFramework\Db\MultipleObjectsReturnedException;
 use OCP\DB\Exception;
 use Psr\Log\LoggerInterface;
 
+/**
+ * This is the central service of this fork, based in part on logics from upstream's ProviderService,
+ * but also adding new logics.
+ *
+ * @author Manuel Biertz (mab@leibniz-psychology.org)
+ * @author zorn-v
+ */
 class TokenService
 {
     private TokensMapper $tokensMapper;
