@@ -89,7 +89,9 @@ class TokenService
     }
 
     /**
-     * Refreshes all pairs of tokens for all users.
+     * Refreshes all pairs of tokens for all users that are due for renewal (= access token expired).
+     *
+     * Skips and removes orphaned token.
      *
      * @param bool $skipFailed Switch that enables skipping refreshes that have failed in the past. Defaults to false.
      *
@@ -108,14 +110,22 @@ class TokenService
             return;
         }
         foreach ($allTokens as $tokens) {
-            $this->refreshTokens($tokens, $skipFailed);
+            if ($skipFailed && $tokens->getHasFailed()) {
+                $this->logger->debug('Skipping tokens for {uid}, as they have failed in the past.', array('uid' => $tokens->getUid()));
+                continue;
+            }
+            // Check whether tokens are orphaned and delete them, if so.
+            if ($this->deleteOrphanedTokens($tokens)) {
+                continue;
+            }
+
+            $this->refreshExpiredTokens($tokens);
         }
     }
 
     /**
-     * Refresh a user's tokens for a single provider.
+     * Refresh a user's tokens for a single provider, if the access token is expired.
      *
-     * @throws LoginException
      * @throws TokensException
      */
     public function refreshUserTokens(string $uid, string $providerId): void
@@ -125,28 +135,31 @@ class TokenService
         } catch (NoTokensException $e) {
             return;
         }
-        $this->refreshTokens($tokens);
+
+        $this->refreshExpiredTokens($tokens);
     }
 
     /**
-     * Refresh a set of tokens, if it is not orphaned and expired.
-     *
-     * @param bool $skipFailed Switch that enables skipping refreshes that have failed in the past. Defaults to false.
+     * Refreshes a set of tokens after checking its orphanage and expiry status.
+     */
+    private function refreshExpiredTokens(Tokens $tokens): void
+    {
+        if ($tokens->isExpired()) {
+            $this->refreshTokens($tokens);
+        } else {
+            $this->logger->info("Token for {uid} has not yet expired.", array('uid' => $tokens->getUid()));
+        }
+    }
+
+    /**
+     * Refreshes a set of tokens without checking for expiry status. If the refresh fails, failure is documented.
      *
      * @throws LoginException
      * @throws TokensException
+     * @throws Exception
      */
-    private function refreshTokens(Tokens $tokens, bool $skipFailed = false): void
+    private function refreshTokens(Tokens $tokens): void
     {
-        if ($skipFailed && $tokens->getHasFailed()) {
-            $this->logger->debug('Skipping tokens for {uid}, as they have failed in the past.', array('uid' => $tokens->getUid()));
-            return;
-        }
-
-        if ($this->deleteOrphanedTokens($tokens)) {
-            return;
-        }
-        if ($tokens->isExpired()) {
             $config = $this->configService->customConfig($tokens->getProviderType(), $tokens->getProviderId());
 
             try {
@@ -176,9 +189,6 @@ class TokenService
             $this->logger->info("Saving refreshed token for {uid}.", array('uid' => $tokens->getUid()));
 
             $this->saveTokens($responseArr, $tokens->getUid(), $tokens->getProviderType(), $tokens->getProviderId());
-        } else {
-            $this->logger->info("Token for {uid} has not yet expired.", array('uid' => $tokens->getUid()));
-        }
     }
 
 
