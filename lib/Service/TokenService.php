@@ -62,7 +62,7 @@ class TokenService
      */
     public function get(string $uid, string $providerId): Tokens {
         try {
-            return $this->tokensMapper->findByConnectedLoginsAndProviderId($uid, $providerId);
+            return $this->tokensMapper->find($uid, $providerId);
         } catch (DoesNotExistException $e) {
             // if not found, retry with connected login
             try {
@@ -74,7 +74,7 @@ class TokenService
                 foreach ($identifiers as $identifier) {
                     // if (preg_match('/^'.preg_quote($providerId, '/').'.*/', $identifier)) {
                     if (preg_match('/^'.preg_quote($providerId, '/').'.*/', $identifier)) {
-                        return $this->tokensMapper->findByConnectedLoginsAndProviderId($identifier, $providerId);
+                        return $this->tokensMapper->find($identifier, $providerId);
                     }
                 }
                 throw new NoTokensException('Could not find tokens for uid '.$uid.'.');

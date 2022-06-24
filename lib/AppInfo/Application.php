@@ -125,7 +125,7 @@ class Application extends App implements IBootstrap
     {
         $user = $event->getUser();
         $this->query(ConnectedLoginMapper::class)->disconnectAll($user->getUID());
-        $this->query(TokensMapper::class)->deleteAll($user->getUID());
+        $this->query(TokensMapper::class)->deleteAllByUser($user->getUID());
     }
 
     private function query($className)

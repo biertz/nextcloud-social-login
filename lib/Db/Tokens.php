@@ -6,6 +6,9 @@ use DateTime;
 use OCP\AppFramework\Db\Entity;
 use OCP\DB\Types;
 
+/**
+ * The Tokens objects holds a user's access and refresh tokens for a provider.
+ */
 class Tokens extends Entity
 {
     /** @var string Nextcloud user id */
