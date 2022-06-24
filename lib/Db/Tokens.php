@@ -4,6 +4,8 @@ namespace OCA\SocialLogin\Db;
 
 use DateTime;
 use Exception;
+use OC\User\LoginException;
+use OCA\SocialLogin\Service\ConfigService;
 use OCA\SocialLogin\Service\TokenService;
 use OCA\SocialLogin\Task\RefreshTokensTask;
 use OCP\AppFramework\Db\Entity;
@@ -50,5 +52,18 @@ class Tokens extends Entity
     {
         $t = time() + RefreshTokensTask::$REFRESH_TOKENS_JOB_INTERVAL + 1;
         return $this->getExpiresAt() < new DateTime('@' . $t);
+    }
+
+    /**
+     * Checks whether a set of tokens is orphaned, i.e. its identity provider is no longer active.
+     *
+     * @param ConfigService $configService
+     * @return bool
+     * @throws LoginException
+     */
+    public function isOrphaned(ConfigService $configService): bool {
+        $config = $configService->customConfig($this->getProviderType(), $this->getProviderId());
+
+        return !array_key_exists('saveTokens', $config) || $config['saveTokens'] != true;
     }
 }

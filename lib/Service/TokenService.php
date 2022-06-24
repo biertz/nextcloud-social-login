@@ -143,7 +143,7 @@ class TokenService
             return;
         }
 
-        if ($this->deleteOldTokens($tokens)) {
+        if ($this->deleteOrphanedTokens($tokens)) {
             return;
         }
         if ($tokens->isExpired()) {
@@ -216,23 +216,24 @@ class TokenService
     }
 
     /**
-     * Delete keys from identity providers that are no longer active.
+     * Checks whether a tokens are orphaned and deletes them, if so.
      *
      * @returns bool Whether the tokens had to be deleted.
      * @throws TokensException
      * @throws LoginException
      */
-    private function deleteOldTokens(Tokens $tokens): bool
+    private function deleteOrphanedTokens(Tokens $tokens): bool
     {
-        $config = $this->configService->customConfig($tokens->getProviderType(), $tokens->getProviderId());
-
-        if (!array_key_exists('saveTokens', $config) || $config['saveTokens'] != true) {
+        if ($tokens->isOrphaned($this->configService)) {
             try {
                 $this->tokensMapper->delete($tokens); // Delete keys from formerly active identity providers.
+                $this->logger->warning("Deleted orphaned {provider} key of {uid}.", array(
+                    'uid' => $tokens->getUid(),
+                    'provider' => $tokens->getProviderId()
+                ));
             } catch (Exception $e) {
                 throw new TokensException($e->getMessage());
             }
-            $this->logger->warning("Deleted old key by {uid}.", array('uid' => $tokens->getUid()));
             return true;
         }
         return false;
