@@ -2,6 +2,12 @@
 
 namespace OCA\SocialLogin\Service;
 
+/**
+ * An excerpt from upstream's ProviderService.
+ *
+ * Thus:
+ * @author: zorn-v
+ */
 class AdapterService
 {
     /**
