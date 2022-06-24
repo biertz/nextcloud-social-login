@@ -146,7 +146,7 @@ class TokenService
         if ($this->deleteOldTokens($tokens)) {
             return;
         }
-        if ($this->hasAccessTokenExpired($tokens)) {
+        if ($tokens->isExpired()) {
             $config = $this->configService->customConfig($tokens->getProviderType(), $tokens->getProviderId());
 
             try {
@@ -236,19 +236,5 @@ class TokenService
             return true;
         }
         return false;
-    }
-
-    /**
-     * Checks whether an access token has expired. Treats any token as expired that would expire before the next cron
-     * execution.
-     *
-     * @param Tokens $tokens
-     * @return bool
-     * @throws \Exception
-     */
-    protected function hasAccessTokenExpired(Tokens $tokens): bool
-    {
-        $t = time() + RefreshTokensTask::$REFRESH_TOKENS_JOB_INTERVAL + 1;
-        return $tokens->getExpiresAt() < new DateTime('@'.$t);
     }
 }
