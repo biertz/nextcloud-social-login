@@ -19,11 +19,12 @@
         <label v-for="(fieldData, fieldName) in provData.fields" :key="fieldName">
           {{ fieldData.title }}<br/>
           <input
-            v-model="provider[fieldName]"
-            :type="fieldData.type"
-            :name="'custom_providers['+provType+']['+k+']['+fieldName+']'"
-            :readonly="fieldName === 'name' && !provider.isNew"
-            :required="fieldData.required"
+              v-model="provider[fieldName]"
+              :type="fieldData.type"
+              :name="'custom_providers['+provType+']['+k+']['+fieldName+']'"
+              :readonly="fieldName === 'name' && !provider.isNew"
+              :required="fieldData.required"
+              :value="true"
           />
           <br/>
         </label>
