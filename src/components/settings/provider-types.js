@@ -60,7 +60,7 @@ export default {
         required: false,
       },
       saveTokens: {
-        title: 'Save and refresh tokens in local database',
+        title: t(appName, 'Save and refresh tokens in local database'),
         type: 'checkbox',
         required: false,
       }
