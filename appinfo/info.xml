@@ -5,7 +5,7 @@
     <name>Social Login LPE</name>
     <summary>Fork of zorn-v's nextcloud-social-login that stores and refreshs tokens</summary>
     <description> </description>
-    <version>4.15.3</version>
+    <version>5.5.3</version>
     <licence>agpl</licence>
     <author>Leibniz Psychology (ZPID)</author>
     <namespace>SocialLogin</namespace>
